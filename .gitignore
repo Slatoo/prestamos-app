@@ -17,3 +17,5 @@ env/
 # Editor
 .vscode/
 .idea
+
+.env
