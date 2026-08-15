@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, Query
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -56,8 +56,16 @@ app.add_middleware(SlowAPIMiddleware)
 # =======================================================
 # AUTENTICACIÓN CON CLERK
 # =======================================================
+import logging
+
+logger = logging.getLogger("uvicorn.error")
+
 CLERK_ISSUER = os.getenv("CLERK_ISSUER")
 jwks_cache = TTLCache(maxsize=1, ttl=3600)
+
+# Mensaje genérico hacia el cliente: no exponemos detalle interno (tipo de excepción,
+# causa exacta) en la respuesta HTTP. El detalle real queda solo en el log del servidor.
+_AUTH_ERROR = "No autorizado: token inválido o expirado"
 
 def get_public_key(token: str):
     try:
@@ -70,8 +78,9 @@ def get_public_key(token: str):
             jwks = jwks_cache["jwks"]
         else:
             if not CLERK_ISSUER:
-                raise HTTPException(status_code=500, detail="CLERK_ISSUER no configurado en .env")
-            resp = requests.get(f"{CLERK_ISSUER}/.well-known/jwks.json")
+                logger.error("CLERK_ISSUER no configurado en .env")
+                raise HTTPException(status_code=500, detail="Error de configuración del servidor")
+            resp = requests.get(f"{CLERK_ISSUER}/.well-known/jwks.json", timeout=5)
             resp.raise_for_status()
             jwks = resp.json()
             jwks_cache["jwks"] = jwks
@@ -80,35 +89,40 @@ def get_public_key(token: str):
             if key["kid"] == kid:
                 return jwt.algorithms.RSAAlgorithm.from_jwk(key)
         return None
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Error verificando token: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.warning("Fallo al verificar token", exc_info=True)
+        raise HTTPException(status_code=401, detail=_AUTH_ERROR)
 
 def get_current_user(request: Request):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="No autorizado: Falta el token")
+        raise HTTPException(status_code=401, detail="No autorizado: falta el token")
 
     token = auth_header.split(" ")[1]
     public_key = get_public_key(token)
 
     if not public_key:
-        raise HTTPException(status_code=401, detail="No autorizado: Llave pública no encontrada")
+        raise HTTPException(status_code=401, detail=_AUTH_ERROR)
 
     try:
         payload = jwt.decode(
             token,
             key=public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False, "verify_iss": False}
+            issuer=CLERK_ISSUER,
+            options={"verify_aud": False, "verify_iss": bool(CLERK_ISSUER)}
         )
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=401, detail="No autorizado: Usuario no encontrado en token")
+            raise HTTPException(status_code=401, detail=_AUTH_ERROR)
         return user_id
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Token inválido: {str(e)}")
+    except jwt.InvalidTokenError:
+        logger.warning("Token inválido recibido", exc_info=True)
+        raise HTTPException(status_code=401, detail=_AUTH_ERROR)
 
 # =======================================================
 # FUNCIONES DE FECHAS E INTERESES
@@ -134,7 +148,7 @@ def calcular_intereses(capital_actual, tasa, fecha_inicio_str, ultimo_pago_fecha
     dias_transcurridos = (hoy - fecha_base).days
     interes_mensual = capital_actual * (tasa / 100)
     interes_diario = interes_mensual / 30
-
+    
     if dias_transcurridos < 0:
         estado_interes = "al_dia"
     elif dias_transcurridos == 0:
@@ -189,7 +203,7 @@ def crear_metodo_pago(metodo: schemas.MetodoPagoCreate, db: Session = Depends(ge
     return db_metodo
 
 @app.get("/metodos-pago/", response_model=list[schemas.MetodoPagoResponse])
-def obtener_metodos_pago(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
+def obtener_metodos_pago(skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=200), db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     metodos = db.query(models.MetodoPago).filter(models.MetodoPago.user_id == user_id).offset(skip).limit(limit).all()
     return metodos
 
@@ -204,7 +218,7 @@ def crear_cliente(cliente: schemas.ClienteCreate, db: Session = Depends(get_db),
     return db_cliente
 
 @app.get("/clientes/", response_model=list[schemas.ClienteResponse])
-def obtener_clientes(show_hidden: bool = False, skip: int = 0, limit: int = 100, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
+def obtener_clientes(show_hidden: bool = False, skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=200), db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     query = db.query(models.Cliente).filter(models.Cliente.user_id == user_id)
     if not show_hidden:
         query = query.filter(models.Cliente.activo == True)
@@ -223,7 +237,7 @@ def editar_cliente(cliente_id: int, cliente_update: schemas.ClienteUpdate, db: S
     cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id, models.Cliente.user_id == user_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-
+    
     cambios = []
     if cliente_update.cedula is not None and cliente_update.cedula != cliente.cedula:
         cambios.append(f"Cédula: {cliente.cedula} -> {cliente_update.cedula}")
@@ -237,11 +251,11 @@ def editar_cliente(cliente_id: int, cliente_update: schemas.ClienteUpdate, db: S
     if cliente_update.email is not None and cliente_update.email != cliente.email:
         cambios.append(f"Email: {cliente.email} -> {cliente_update.email}")
         cliente.email = cliente_update.email
-
+        
     if cambios:
         descripcion = f"Cliente editado: {', '.join(cambios)}"
         registrar_actividad(db, user_id, "Clientes", "ACTUALIZACIÓN", descripcion, cliente_id=cliente.id)
-
+        
     db.commit()
     db.refresh(cliente)
     return cliente
@@ -251,13 +265,13 @@ def ocultar_cliente(cliente_id: int, db: Session = Depends(get_db), user_id: str
     cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id, models.Cliente.user_id == user_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-
+        
     prestamos_activos = db.query(models.Prestamo).filter(
         models.Prestamo.cliente_id == cliente_id, models.Prestamo.estado == "Activo", models.Prestamo.user_id == user_id
     ).first()
     if prestamos_activos:
         raise HTTPException(status_code=400, detail="No se puede ocultar: el cliente tiene préstamos activos.")
-
+        
     cliente.activo = False
     registrar_actividad(db, user_id, "Clientes", "OCULTACIÓN", f"Cliente ocultado: {cliente.nombre}", cliente_id=cliente.id)
     db.commit()
@@ -269,7 +283,7 @@ def restaurar_cliente(cliente_id: int, db: Session = Depends(get_db), user_id: s
     cliente = db.query(models.Cliente).filter(models.Cliente.id == cliente_id, models.Cliente.user_id == user_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-
+        
     cliente.activo = True
     registrar_actividad(db, user_id, "Clientes", "RESTAURACIÓN", f"Cliente restaurado: {cliente.nombre}", cliente_id=cliente.id)
     db.commit()
@@ -300,16 +314,27 @@ def crear_prestamo(prestamo: schemas.PrestamoCreate, db: Session = Depends(get_d
     return db_prestamo
 
 @app.get("/prestamos/", response_model=list[schemas.PrestamoDetalleResponse])
-def obtener_todos_prestamos(skip: int = 0, limit: int = 100, cliente_id: int = None, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
+def obtener_todos_prestamos(skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=200), cliente_id: int = None, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     query = db.query(models.Prestamo).filter(models.Prestamo.user_id == user_id)
     if cliente_id:
         query = query.filter(models.Prestamo.cliente_id == cliente_id)
 
     prestamos = query.offset(skip).limit(limit).all()
+
+    # Traemos clientes y métodos de pago involucrados en una sola query cada uno (evita N+1)
+    cliente_ids = {p.cliente_id for p in prestamos}
+    metodo_ids = {p.metodo_pago_id for p in prestamos}
+    clientes_map = {c.id: c for c in db.query(models.Cliente).filter(
+        models.Cliente.id.in_(cliente_ids), models.Cliente.user_id == user_id
+    ).all()} if cliente_ids else {}
+    metodos_map = {m.id: m for m in db.query(models.MetodoPago).filter(
+        models.MetodoPago.id.in_(metodo_ids), models.MetodoPago.user_id == user_id
+    ).all()} if metodo_ids else {}
+
     resultados = []
     for prestamo in prestamos:
-        cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
-        metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == prestamo.metodo_pago_id, models.MetodoPago.user_id == user_id).first()
+        cliente = clientes_map.get(prestamo.cliente_id)
+        metodo = metodos_map.get(prestamo.metodo_pago_id)
         calc = calcular_intereses(prestamo.capital_actual, prestamo.tasa_interes, prestamo.fecha_inicio, prestamo.ultimo_pago_fecha)
 
         prestamo_dict = {
@@ -330,7 +355,7 @@ def calcular_saldo(prestamo_id: int, db: Session = Depends(get_db), user_id: str
     prestamo = db.query(models.Prestamo).filter(models.Prestamo.id == prestamo_id, models.Prestamo.user_id == user_id).first()
     if not prestamo:
         raise HTTPException(status_code=404, detail="Préstamo no encontrado")
-
+    
     calc = calcular_intereses(prestamo.capital_actual, prestamo.tasa_interes, prestamo.fecha_inicio, prestamo.ultimo_pago_fecha)
     return {
         "prestamo_id": prestamo.id, "capital_actual": prestamo.capital_actual,
@@ -356,7 +381,7 @@ def crear_pago(pago: schemas.PagoCreate, db: Session = Depends(get_db), user_id:
     hoy = datetime.now()
     fecha_base_dt = datetime.strptime(prestamo.ultimo_pago_fecha, "%Y-%m-%d")
     estamos_en_periodo_prepagado = fecha_base_dt > hoy
-
+    
     # El interés siempre tiene prioridad: hasta no cubrirlo, nada del pago toca el capital
     interes_pagado = 0.0
     capital_pagado = 0.0
@@ -430,7 +455,7 @@ def crear_pago(pago: schemas.PagoCreate, db: Session = Depends(get_db), user_id:
         f"(Interés: ${interes_pagado:.2f} | Capital: ${capital_pagado:.2f}) "
         f"(Método: {metodo.nombre})"
     )
-
+    
     registrar_actividad(db, user_id, "Pagos", "PAGO_REGISTRADO", descripcion, monto=pago.monto, cliente_id=prestamo.cliente_id)
     db.commit()
     db.refresh(prestamo)
@@ -442,14 +467,14 @@ def crear_pago(pago: schemas.PagoCreate, db: Session = Depends(get_db), user_id:
 def get_dashboard_stats(db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     total_clientes = db.query(models.Cliente).filter(models.Cliente.activo == True, models.Cliente.user_id == user_id).count()
     prestamos_activos = db.query(models.Prestamo).filter(models.Prestamo.estado == "Activo", models.Prestamo.user_id == user_id).all()
-
+    
     monto_prestado = sum(p.monto for p in prestamos_activos)
     capital_vivo = sum(p.capital_actual for p in prestamos_activos)
     ganancias_intereses = sum(p.capital_actual * (p.tasa_interes / 100) for p in prestamos_activos)
-
+    
     pagos = db.query(models.Pago).filter(models.Pago.user_id == user_id).all()
     monto_cobrado = sum(p.monto for p in pagos)
-
+    
     return {
         "total_clientes": total_clientes, "prestamos_activos": len(prestamos_activos),
         "monto_prestado": monto_prestado, "monto_cobrado": monto_cobrado,
@@ -469,9 +494,14 @@ def get_resumen_financiero(db: Session = Depends(get_db), user_id: str = Depends
     ).filter(models.Pago.user_id == user_id).group_by(models.Pago.prestamo_id).all()
     agregados_por_prestamo = {a.prestamo_id: a for a in agregados}
 
+    cliente_ids = {p.cliente_id for p in prestamos}
+    clientes_map = {c.id: c for c in db.query(models.Cliente).filter(
+        models.Cliente.id.in_(cliente_ids), models.Cliente.user_id == user_id
+    ).all()} if cliente_ids else {}
+
     resultados = []
     for prestamo in prestamos:
-        cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
+        cliente = clientes_map.get(prestamo.cliente_id)
         agg = agregados_por_prestamo.get(prestamo.id)
         resultados.append({
             "id": prestamo.id,
@@ -542,14 +572,17 @@ def get_detalle_mes(anio: int, mes: int, cliente: str = None, db: Session = Depe
     if cliente:
         q_prestamos = q_prestamos.filter(models.Cliente.nombre.ilike(f"%{cliente}%"))
 
-    prestamos_out = []
-    for p in q_prestamos.order_by(models.Prestamo.fecha_inicio).all():
-        cli = db.query(models.Cliente).filter(models.Cliente.id == p.cliente_id, models.Cliente.user_id == user_id).first()
-        prestamos_out.append({
-            "id": p.id, "fecha": p.fecha_inicio, "cliente_nombre": cli.nombre if cli else "Desconocido",
-            "monto": p.monto, "tasa_interes": p.tasa_interes,
-            "ganancia_minima": round(p.monto * (p.tasa_interes / 100), 2),
-        })
+    prestamos_del_mes = q_prestamos.order_by(models.Prestamo.fecha_inicio).all()
+    cliente_ids = {p.cliente_id for p in prestamos_del_mes}
+    clientes_map = {c.id: c for c in db.query(models.Cliente).filter(
+        models.Cliente.id.in_(cliente_ids), models.Cliente.user_id == user_id
+    ).all()} if cliente_ids else {}
+
+    prestamos_out = [{
+        "id": p.id, "fecha": p.fecha_inicio, "cliente_nombre": clientes_map.get(p.cliente_id).nombre if clientes_map.get(p.cliente_id) else "Desconocido",
+        "monto": p.monto, "tasa_interes": p.tasa_interes,
+        "ganancia_minima": round(p.monto * (p.tasa_interes / 100), 2),
+    } for p in prestamos_del_mes]
 
     q_pagos = db.query(models.Pago).join(
         models.Prestamo, models.Prestamo.id == models.Pago.prestamo_id
@@ -559,10 +592,20 @@ def get_detalle_mes(anio: int, mes: int, cliente: str = None, db: Session = Depe
     if cliente:
         q_pagos = q_pagos.filter(models.Cliente.nombre.ilike(f"%{cliente}%"))
 
+    pagos_del_mes = q_pagos.order_by(models.Pago.fecha).all()
+    prestamo_ids = {pg.prestamo_id for pg in pagos_del_mes}
+    prestamos_map = {p.id: p for p in db.query(models.Prestamo).filter(
+        models.Prestamo.id.in_(prestamo_ids), models.Prestamo.user_id == user_id
+    ).all()} if prestamo_ids else {}
+    cliente_ids_pagos = {p.cliente_id for p in prestamos_map.values()}
+    clientes_map_pagos = {c.id: c for c in db.query(models.Cliente).filter(
+        models.Cliente.id.in_(cliente_ids_pagos), models.Cliente.user_id == user_id
+    ).all()} if cliente_ids_pagos else {}
+
     pagos_out = []
-    for pg in q_pagos.order_by(models.Pago.fecha).all():
-        prestamo = db.query(models.Prestamo).filter(models.Prestamo.id == pg.prestamo_id, models.Prestamo.user_id == user_id).first()
-        cli = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first() if prestamo else None
+    for pg in pagos_del_mes:
+        prestamo = prestamos_map.get(pg.prestamo_id)
+        cli = clientes_map_pagos.get(prestamo.cliente_id) if prestamo else None
         pagos_out.append({
             "id": pg.id, "fecha": pg.fecha, "prestamo_id": pg.prestamo_id,
             "cliente_nombre": cli.nombre if cli else "Desconocido",
@@ -573,15 +616,15 @@ def get_detalle_mes(anio: int, mes: int, cliente: str = None, db: Session = Depe
 
 # --- RUTA DE ACTIVIDAD / AUDITORÍA ---
 @app.get("/actividades/", response_model=list[schemas.ActividadResponse])
-def obtener_actividades(skip: int = 0, limit: int = 50, categoria: str = None, accion: str = None, cliente_id: int = None, fecha_desde: str = None, fecha_hasta: str = None, search: str = None, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
+def obtener_actividades(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), categoria: str = None, accion: str = None, cliente_id: int = None, fecha_desde: str = None, fecha_hasta: str = None, search: str = None, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
     query = db.query(models.Actividad).filter(models.Actividad.user_id == user_id)
-
+    
     if categoria: query = query.filter(models.Actividad.categoria == categoria)
     if accion: query = query.filter(models.Actividad.accion == accion)
     if cliente_id: query = query.filter(models.Actividad.cliente_id == cliente_id)
     if fecha_desde: query = query.filter(models.Actividad.fecha_hora >= f"{fecha_desde} 00:00:00")
     if fecha_hasta: query = query.filter(models.Actividad.fecha_hora <= f"{fecha_hasta} 23:59:59")
     if search: query = query.filter(models.Actividad.descripcion.contains(search))
-
+        
     actividades = query.order_by(models.Actividad.fecha_hora.desc()).offset(skip).limit(limit).all()
     return actividades

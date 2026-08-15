@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CheckCircle, AlertCircle, XCircle, Download } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchSelect } from "@/components/SearchSelect"
+import { API_URL } from "@/lib/api"
 
 export default function PrestamosLista() {
   const { getToken } = useAuth();
@@ -29,7 +30,7 @@ export default function PrestamosLista() {
   const fetchPrestamos = async () => {
     try {
       const token = await getToken();
-      const res = await fetch("http://127.0.0.1:8000/prestamos/", {
+      const res = await fetch(`${API_URL}/prestamos/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -49,7 +50,7 @@ export default function PrestamosLista() {
   useEffect(() => {
     const fetchMetodos = async () => {
       const token = await getToken();
-      fetch("http://127.0.0.1:8000/metodos-pago/", {
+      fetch(`${API_URL}/metodos-pago/`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then((res) => res.json())
@@ -65,7 +66,7 @@ export default function PrestamosLista() {
     const today = new Date().toISOString().split('T')[0]
     const token = await getToken();
 
-    fetch(`http://127.0.0.1:8000/prestamos/${prestamoId}/saldo/`, {
+    fetch(`${API_URL}/prestamos/${prestamoId}/saldo/`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then((res) => res.json())
@@ -114,7 +115,7 @@ export default function PrestamosLista() {
     // 4. Enviar petición con manejo de errores amigable
     try {
       const token = await getToken()
-      const res = await fetch("http://127.0.0.1:8000/pagos/", {
+      const res = await fetch(`${API_URL}/pagos/`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

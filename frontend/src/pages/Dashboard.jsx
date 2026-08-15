@@ -7,13 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Users, Wallet, DollarSign, TrendingUp, CircleDollarSign, HandCoins, PiggyBank, ArrowLeft } from "lucide-react"
+import { API_URL } from "@/lib/api"
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ]
-
-const API_URL = "http://127.0.0.1:8000"
 
 export default function Dashboard() {
   const { getToken } = useAuth();

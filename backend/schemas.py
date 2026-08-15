@@ -1,8 +1,16 @@
-from pydantic import BaseModel
+from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+def _validar_fecha(value: str) -> str:
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        raise ValueError("La fecha debe tener el formato YYYY-MM-DD")
+    return value
 
 # --- METODOS DE PAGO ---
 class MetodoPagoCreate(BaseModel):
-    nombre: str
+    nombre: str = Field(min_length=1, max_length=100)
 
 class MetodoPagoResponse(MetodoPagoCreate):
     id: int
@@ -11,32 +19,38 @@ class MetodoPagoResponse(MetodoPagoCreate):
 
 # --- CLIENTES ---
 class ClienteCreate(BaseModel):
+    cedula: str = Field(min_length=1, max_length=30)
+    nombre: str = Field(min_length=1, max_length=150)
+    telefono: str = Field(min_length=1, max_length=30)
+    email: EmailStr
+
+class ClienteResponse(BaseModel):
+    id: int
     cedula: str
     nombre: str
     telefono: str
     email: str
-
-class ClienteResponse(ClienteCreate):
-    id: int
     activo: bool = True
     class Config:
         from_attributes = True
 
 class ClienteUpdate(BaseModel):
-    cedula: str | None = None
-    nombre: str | None = None
-    telefono: str | None = None
-    email: str | None = None
+    cedula: str | None = Field(default=None, min_length=1, max_length=30)
+    nombre: str | None = Field(default=None, min_length=1, max_length=150)
+    telefono: str | None = Field(default=None, min_length=1, max_length=30)
+    email: EmailStr | None = None
 
 # --- PRESTAMOS ---
 class PrestamoCreate(BaseModel):
     cliente_id: int
-    monto: float
-    tasa_interes: float
+    monto: float = Field(gt=0)
+    tasa_interes: float = Field(gt=0)
     fecha_inicio: str
     metodo_pago_id: int
     # Por defecto es True, no hace falta enviarlo desde el frontend
     pago_proporcional: bool = True
+
+    _validar_fecha_inicio = field_validator("fecha_inicio")(_validar_fecha)
 
 class PrestamoResponse(PrestamoCreate):
     id: int
@@ -60,11 +74,13 @@ class PrestamoDetalleResponse(PrestamoResponse):
 # --- PAGOS ---
 class PagoCreate(BaseModel):
     prestamo_id: int
-    monto: float
+    monto: float = Field(gt=0)
     fecha: str
     # El frontend enviará True o False dependiendo del check en el modal de pago
     pago_proporcional: bool = False
     metodo_pago_id: int
+
+    _validar_fecha_pago = field_validator("fecha")(_validar_fecha)
 
 class PagoResponse(PagoCreate):
     id: int

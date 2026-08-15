@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, X, Eye } from "lucide-react"
+import { API_URL } from "@/lib/api"
 
 export default function ClientesLista() {
   const { getToken } = useAuth(); // <-- NUEVO HOOK DE CLERK
@@ -18,7 +19,7 @@ export default function ClientesLista() {
     const fetchClientes = async () => {
       const token = await getToken(); // <-- OBTENEMOS EL TOKEN
       
-      fetch(`http://127.0.0.1:8000/clientes/?show_hidden=${showHidden}`, {
+      fetch(`${API_URL}/clientes/?show_hidden=${showHidden}`, {
         headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
       })
         .then((res) => res.json())

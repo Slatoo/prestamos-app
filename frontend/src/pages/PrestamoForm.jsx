@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { SearchSelect } from "@/components/SearchSelect"
+import { API_URL } from "@/lib/api"
 
 export default function PrestamoForm() {
   const navigate = useNavigate()
@@ -26,14 +27,14 @@ export default function PrestamoForm() {
     const fetchData = async () => {
       const token = await getToken();
       
-      fetch("http://127.0.0.1:8000/clientes/", {
+      fetch(`${API_URL}/clientes/`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then((res) => res.json())
         .then(setClientes)
         .catch(console.error)
         
-      fetch("http://127.0.0.1:8000/metodos-pago/", {
+      fetch(`${API_URL}/metodos-pago/`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then((res) => res.json())
@@ -121,7 +122,7 @@ export default function PrestamoForm() {
 
     const token = await getToken();
     try {
-      const res = await fetch("http://127.0.0.1:8000/prestamos/", {
+      const res = await fetch(`${API_URL}/prestamos/`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

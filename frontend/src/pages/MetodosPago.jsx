@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { API_URL } from "@/lib/api"
 
 export default function MetodosPago() {
   const { getToken } = useAuth(); // <-- NUEVO HOOK DE CLERK
@@ -12,7 +13,7 @@ export default function MetodosPago() {
 
   const fetchMetodos = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch("http://127.0.0.1:8000/metodos-pago/", {
+    fetch(`${API_URL}/metodos-pago/`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
@@ -25,7 +26,7 @@ export default function MetodosPago() {
   const handleSubmit = async (e) => { // <-- AHORA ES ASYNC
     e.preventDefault()
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch("http://127.0.0.1:8000/metodos-pago/", {
+    fetch(`${API_URL}/metodos-pago/`, {
       method: "POST",
       headers: { 
         "Content-Type": "application/json",

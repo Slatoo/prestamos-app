@@ -13,9 +13,13 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 if not SQLALCHEMY_DATABASE_URL:
     raise ValueError("DATABASE_URL no encontrada. Revisa tu archivo .env")
 
-# 3. Crear el motor de la base de datos 
+# 3. Crear el motor de la base de datos
 # (Quitamos connect_args porque solo se usan para SQLite, no para PostgreSQL)
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+# pool_pre_ping: verifica la conexión antes de usarla (Supabase/pgbouncer cierran
+#   conexiones idle del lado del servidor, y sin esto se ven errores intermitentes
+#   tipo "server closed the connection unexpectedly").
+# pool_recycle: recicla conexiones cada 30 min para evitar que el pooler las mate primero.
+engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
 
 # 4. Crear la sesión y la clase Base
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
+import { UserButton } from "@clerk/clerk-react"
 import { LayoutDashboard, Users, UserPlus, Wallet, HandCoins, CreditCard, History, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -46,6 +47,14 @@ const menuItems = [
           </Link>
         ))}
       </nav>
+
+      <div className={cn(
+        "p-4 border-t border-slate-200 flex items-center",
+        isCollapsed ? "justify-center" : "justify-start gap-3"
+      )}>
+        <UserButton afterSignOutUrl="/" />
+        {!isCollapsed && <span className="text-sm text-slate-600">Mi cuenta</span>}
+      </div>
     </aside>
   )
 }

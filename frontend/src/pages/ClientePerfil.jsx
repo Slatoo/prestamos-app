@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Label } from "@/components/ui/label"
+import { API_URL } from "@/lib/api"
 
 export default function ClientePerfil() {
   const { id } = useParams()
@@ -27,7 +28,7 @@ export default function ClientePerfil() {
   const fetchClienteData = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
 
-    fetch(`http://127.0.0.1:8000/clientes/${id}`, {
+    fetch(`${API_URL}/clientes/${id}`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
@@ -37,14 +38,14 @@ export default function ClientePerfil() {
       })
       .catch(console.error)
 
-    fetch(`http://127.0.0.1:8000/prestamos/?cliente_id=${id}`, {
+    fetch(`${API_URL}/prestamos/?cliente_id=${id}`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
       .then(setPrestamos)
       .catch(console.error)
 
-    fetch(`http://127.0.0.1:8000/actividades/?cliente_id=${id}&limit=100`, {
+    fetch(`${API_URL}/actividades/?cliente_id=${id}&limit=100`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
@@ -80,7 +81,7 @@ export default function ClientePerfil() {
   const handleEditSubmit = async (e) => { // <-- AHORA ES ASYNC
     e.preventDefault()
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch(`http://127.0.0.1:8000/clientes/${id}`, {
+    fetch(`${API_URL}/clientes/${id}`, {
       method: "PUT",
       headers: { 
         "Content-Type": "application/json",
@@ -99,7 +100,7 @@ export default function ClientePerfil() {
   const handleOcultar = async () => { // <-- AHORA ES ASYNC
     if (!confirm("¿Estás seguro de ocultar este cliente? Ya no aparecerá en las listas principales.")) return
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch(`http://127.0.0.1:8000/clientes/${id}/ocultar/`, { 
+    fetch(`${API_URL}/clientes/${id}/ocultar/`, { 
       method: "POST",
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
@@ -110,7 +111,7 @@ export default function ClientePerfil() {
 
   const handleRestaurar = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch(`http://127.0.0.1:8000/clientes/${id}/restaurar/`, { 
+    fetch(`${API_URL}/clientes/${id}/restaurar/`, { 
       method: "POST",
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })

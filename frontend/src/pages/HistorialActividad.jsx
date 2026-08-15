@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { History } from "lucide-react"
+import { API_URL } from "@/lib/api"
 
 export default function HistorialActividad() {
   const { getToken } = useAuth(); // <-- NUEVO HOOK DE CLERK
@@ -24,7 +25,7 @@ export default function HistorialActividad() {
   const fetchActividades = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
     const skip = (page - 1) * limit
-    let url = `http://127.0.0.1:8000/actividades/?skip=${skip}&limit=${limit}`
+    let url = `${API_URL}/actividades/?skip=${skip}&limit=${limit}`
     
     if (search) url += `&search=${search}`
     if (categoria !== "Todos") url += `&categoria=${categoria}`
@@ -60,7 +61,7 @@ export default function HistorialActividad() {
     setPage(1)
     // Forzamos la recarga sin filtros
     setTimeout(() => 
-      fetch(`http://127.0.0.1:8000/actividades/?skip=0&limit=${limit}`, {
+      fetch(`${API_URL}/actividades/?skip=0&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
       })
         .then(r=>r.json())
