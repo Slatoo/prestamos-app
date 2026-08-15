@@ -279,13 +279,20 @@ def restaurar_cliente(cliente_id: int, db: Session = Depends(get_db), user_id: s
 # --- RUTAS DE PRÉSTAMOS ---
 @app.post("/prestamos/", response_model=schemas.PrestamoResponse)
 def crear_prestamo(prestamo: schemas.PrestamoCreate, db: Session = Depends(get_db), user_id: str = Depends(get_current_user)):
+    # Verificamos que el cliente y el método de pago existan y pertenezcan a este usuario
+    # ANTES de crear nada (evita asociar el préstamo a datos de otro usuario)
+    cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == prestamo.metodo_pago_id, models.MetodoPago.user_id == user_id).first()
+    if not metodo:
+        raise HTTPException(status_code=404, detail="Método de pago no encontrado")
+
     db_prestamo = models.Prestamo(
         **prestamo.dict(), user_id=user_id, capital_actual=prestamo.monto, ultimo_pago_fecha=prestamo.fecha_inicio
     )
     db.add(db_prestamo)
-    cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
-    metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == prestamo.metodo_pago_id, models.MetodoPago.user_id == user_id).first()
-    descripcion = f"Préstamo creado: ${prestamo.monto} a {cliente.nombre if cliente else 'Desconocido'} (Tasa: {prestamo.tasa_interes}%, Método: {metodo.nombre if metodo else 'N/A'})"
+    descripcion = f"Préstamo creado: ${prestamo.monto} a {cliente.nombre} (Tasa: {prestamo.tasa_interes}%, Método: {metodo.nombre})"
 
     registrar_actividad(db, user_id, "Préstamos", "CREACIÓN", descripcion, monto=prestamo.monto, cliente_id=prestamo.cliente_id)
     db.commit()
@@ -301,8 +308,8 @@ def obtener_todos_prestamos(skip: int = 0, limit: int = 100, cliente_id: int = N
     prestamos = query.offset(skip).limit(limit).all()
     resultados = []
     for prestamo in prestamos:
-        cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id).first()
-        metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == prestamo.metodo_pago_id).first()
+        cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
+        metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == prestamo.metodo_pago_id, models.MetodoPago.user_id == user_id).first()
         calc = calcular_intereses(prestamo.capital_actual, prestamo.tasa_interes, prestamo.fecha_inicio, prestamo.ultimo_pago_fecha)
 
         prestamo_dict = {
@@ -339,6 +346,11 @@ def crear_pago(pago: schemas.PagoCreate, db: Session = Depends(get_db), user_id:
     prestamo = db.query(models.Prestamo).filter(models.Prestamo.id == pago.prestamo_id, models.Prestamo.user_id == user_id).first()
     if not prestamo or prestamo.estado == "Pagado":
         raise HTTPException(status_code=400, detail="Préstamo no encontrado o ya pagado")
+
+    # Verificamos que el método de pago pertenezca a este usuario antes de registrar nada
+    metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == pago.metodo_pago_id, models.MetodoPago.user_id == user_id).first()
+    if not metodo:
+        raise HTTPException(status_code=404, detail="Método de pago no encontrado")
 
     calc = calcular_intereses(prestamo.capital_actual, prestamo.tasa_interes, prestamo.fecha_inicio, prestamo.ultimo_pago_fecha)
     hoy = datetime.now()
@@ -412,12 +424,11 @@ def crear_pago(pago: schemas.PagoCreate, db: Session = Depends(get_db), user_id:
     )
     db.add(db_pago)
 
-    cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id).first()
-    metodo = db.query(models.MetodoPago).filter(models.MetodoPago.id == pago.metodo_pago_id).first()
+    cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
     descripcion = (
         f"Pago registrado: ${pago.monto} de {cliente.nombre if cliente else 'Desconocido'} "
         f"(Interés: ${interes_pagado:.2f} | Capital: ${capital_pagado:.2f}) "
-        f"(Método: {metodo.nombre if metodo else 'N/A'})"
+        f"(Método: {metodo.nombre})"
     )
 
     registrar_actividad(db, user_id, "Pagos", "PAGO_REGISTRADO", descripcion, monto=pago.monto, cliente_id=prestamo.cliente_id)
@@ -460,7 +471,7 @@ def get_resumen_financiero(db: Session = Depends(get_db), user_id: str = Depends
 
     resultados = []
     for prestamo in prestamos:
-        cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id).first()
+        cliente = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first()
         agg = agregados_por_prestamo.get(prestamo.id)
         resultados.append({
             "id": prestamo.id,
@@ -533,7 +544,7 @@ def get_detalle_mes(anio: int, mes: int, cliente: str = None, db: Session = Depe
 
     prestamos_out = []
     for p in q_prestamos.order_by(models.Prestamo.fecha_inicio).all():
-        cli = db.query(models.Cliente).filter(models.Cliente.id == p.cliente_id).first()
+        cli = db.query(models.Cliente).filter(models.Cliente.id == p.cliente_id, models.Cliente.user_id == user_id).first()
         prestamos_out.append({
             "id": p.id, "fecha": p.fecha_inicio, "cliente_nombre": cli.nombre if cli else "Desconocido",
             "monto": p.monto, "tasa_interes": p.tasa_interes,
@@ -550,8 +561,8 @@ def get_detalle_mes(anio: int, mes: int, cliente: str = None, db: Session = Depe
 
     pagos_out = []
     for pg in q_pagos.order_by(models.Pago.fecha).all():
-        prestamo = db.query(models.Prestamo).filter(models.Prestamo.id == pg.prestamo_id).first()
-        cli = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id).first() if prestamo else None
+        prestamo = db.query(models.Prestamo).filter(models.Prestamo.id == pg.prestamo_id, models.Prestamo.user_id == user_id).first()
+        cli = db.query(models.Cliente).filter(models.Cliente.id == prestamo.cliente_id, models.Cliente.user_id == user_id).first() if prestamo else None
         pagos_out.append({
             "id": pg.id, "fecha": pg.fecha, "prestamo_id": pg.prestamo_id,
             "cliente_nombre": cli.nombre if cli else "Desconocido",
