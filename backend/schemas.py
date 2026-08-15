@@ -36,7 +36,7 @@ class PrestamoCreate(BaseModel):
     fecha_inicio: str
     metodo_pago_id: int
     # Por defecto es True, no hace falta enviarlo desde el frontend
-    pago_proporcional: bool = True 
+    pago_proporcional: bool = True
 
 class PrestamoResponse(PrestamoCreate):
     id: int
@@ -48,10 +48,10 @@ class PrestamoResponse(PrestamoCreate):
 
 class PrestamoDetalleResponse(PrestamoResponse):
     cliente_nombre: str
-    intereses_pendientes: float 
+    intereses_pendientes: float
     total_a_pagar_hoy: float
     dias_transcurridos: int
-    fecha_limite: str 
+    fecha_limite: str
     estado_interes: str
     metodo_pago_nombre: str
     class Config:
@@ -63,11 +63,28 @@ class PagoCreate(BaseModel):
     monto: float
     fecha: str
     # El frontend enviará True o False dependiendo del check en el modal de pago
-    pago_proporcional: bool = False 
+    pago_proporcional: bool = False
     metodo_pago_id: int
 
 class PagoResponse(PagoCreate):
     id: int
+    interes_pagado: float = 0.0
+    capital_pagado: float = 0.0
+    class Config:
+        from_attributes = True
+
+# --- RESUMEN FINANCIERO (DASHBOARD) ---
+class ResumenPrestamoResponse(BaseModel):
+    id: int
+    cliente_nombre: str
+    monto: float
+    tasa_interes: float
+    ganancia_minima: float
+    capital_actual: float
+    total_pagado: float
+    total_interes_cobrado: float
+    total_capital_cobrado: float
+    estado: str
     class Config:
         from_attributes = True
 
@@ -80,6 +97,6 @@ class ActividadResponse(BaseModel):
     descripcion: str
     monto_referencia: float | None = None
     cliente_id: int | None = None
-    
+
     class Config:
         from_attributes = True

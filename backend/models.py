@@ -45,6 +45,9 @@ class Pago(Base):
     monto = Column(Float)
     fecha = Column(String)
     metodo_pago_id = Column(Integer, ForeignKey("metodos_pago.id"))
+    # Desglose del pago: interés siempre tiene prioridad sobre capital
+    interes_pagado = Column(Float, default=0.0)
+    capital_pagado = Column(Float, default=0.0)
     
     prestamo = relationship("Prestamo", back_populates="pagos")
     metodo_pago = relationship("MetodoPago")
