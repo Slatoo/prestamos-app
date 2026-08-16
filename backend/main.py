@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, Query
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 import math
 import calendar
@@ -18,12 +19,51 @@ from cachetools import TTLCache
 # Crear tablas en la base de datos
 Base.metadata.create_all(bind=engine)
 
-# Migración ligera: agrega columnas nuevas a tablas ya existentes
+# Migración ligera: agrega columnas/restricciones nuevas a tablas ya existentes
 # (Base.metadata.create_all no altera tablas que ya existen)
 with engine.connect() as conn:
     conn.execute(text("ALTER TABLE pagos ADD COLUMN IF NOT EXISTS interes_pagado FLOAT DEFAULT 0"))
     conn.execute(text("ALTER TABLE pagos ADD COLUMN IF NOT EXISTS capital_pagado FLOAT DEFAULT 0"))
+
+    # cedula/email/nombre de método de pago quedaron como únicos GLOBALMENTE en versiones
+    # viejas del esquema. Deben ser únicos solo por usuario (dos usuarios distintos pueden
+    # tener cada uno un cliente con la misma cédula, o un método de pago "Efectivo").
+    conn.execute(text('DROP INDEX IF EXISTS ix_clientes_cedula'))
+    conn.execute(text('DROP INDEX IF EXISTS ix_clientes_email'))
+    conn.execute(text('DROP INDEX IF EXISTS ix_metodos_pago_nombre'))
+    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_clientes_cedula ON clientes (cedula)'))
+    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_clientes_email ON clientes (email)'))
+    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_metodos_pago_nombre ON metodos_pago (nombre)'))
+
+    for constraint_sql in [
+        "ALTER TABLE clientes ADD CONSTRAINT uq_clientes_user_cedula UNIQUE (user_id, cedula)",
+        "ALTER TABLE clientes ADD CONSTRAINT uq_clientes_user_email UNIQUE (user_id, email)",
+        "ALTER TABLE metodos_pago ADD CONSTRAINT uq_metodos_pago_user_nombre UNIQUE (user_id, nombre)",
+    ]:
+        constraint_name = constraint_sql.split("ADD CONSTRAINT ")[1].split(" ")[0]
+        conn.execute(text(f"""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '{constraint_name}') THEN
+                    {constraint_sql};
+                END IF;
+            END $$;
+        """))
     conn.commit()
+
+# Mensajes amigables para violaciones de las restricciones únicas de arriba,
+# en vez de dejar que el 500 crudo llegue al cliente.
+_UNIQUE_ERROR_MESSAGES = {
+    "uq_clientes_user_cedula": "Ya tenés un cliente registrado con esa cédula.",
+    "uq_clientes_user_email": "Ya tenés un cliente registrado con ese email.",
+    "uq_metodos_pago_user_nombre": "Ya tenés un método de pago con ese nombre.",
+}
+
+def _raise_amigable_integrity_error(db: Session, error: IntegrityError):
+    db.rollback()
+    constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    mensaje = _UNIQUE_ERROR_MESSAGES.get(constraint, "Ya existe un registro con esos datos.")
+    raise HTTPException(status_code=400, detail=mensaje)
 
 app = FastAPI()
 
@@ -198,7 +238,10 @@ def crear_metodo_pago(metodo: schemas.MetodoPagoCreate, db: Session = Depends(ge
     db_metodo = models.MetodoPago(**metodo.dict(), user_id=user_id)
     db.add(db_metodo)
     registrar_actividad(db, user_id, "Sistema", "CREACIÓN", f"Nuevo método de pago creado: {metodo.nombre}")
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        _raise_amigable_integrity_error(db, e)
     db.refresh(db_metodo)
     return db_metodo
 
@@ -213,7 +256,10 @@ def crear_cliente(cliente: schemas.ClienteCreate, db: Session = Depends(get_db),
     db_cliente = models.Cliente(**cliente.dict(), user_id=user_id)
     db.add(db_cliente)
     registrar_actividad(db, user_id, "Clientes", "CREACIÓN", f"Cliente creado: {cliente.nombre}", cliente_id=db_cliente.id)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        _raise_amigable_integrity_error(db, e)
     db.refresh(db_cliente)
     return db_cliente
 
@@ -255,8 +301,11 @@ def editar_cliente(cliente_id: int, cliente_update: schemas.ClienteUpdate, db: S
     if cambios:
         descripcion = f"Cliente editado: {', '.join(cambios)}"
         registrar_actividad(db, user_id, "Clientes", "ACTUALIZACIÓN", descripcion, cliente_id=cliente.id)
-        
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError as e:
+        _raise_amigable_integrity_error(db, e)
     db.refresh(cliente)
     return cliente
 

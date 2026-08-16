@@ -1,15 +1,26 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 
 class MetodoPago(Base):
     __tablename__ = "metodos_pago"
+    __table_args__ = (
+        # El nombre del método de pago debe ser único por usuario, no globalmente
+        # (dos usuarios distintos pueden tener cada uno un método "Efectivo").
+        UniqueConstraint("user_id", "nombre", name="uq_metodos_pago_user_nombre"),
+    )
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, index=True)
     nombre = Column(String, index=True)
 
 class Cliente(Base):
     __tablename__ = "clientes"
+    __table_args__ = (
+        # Cédula/email deben ser únicos por usuario, no globalmente
+        # (dos usuarios distintos pueden tener cada uno un cliente con la misma cédula).
+        UniqueConstraint("user_id", "cedula", name="uq_clientes_user_cedula"),
+        UniqueConstraint("user_id", "email", name="uq_clientes_user_email"),
+    )
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, index=True)
     cedula = Column(String, index=True)
