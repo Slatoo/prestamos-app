@@ -8,6 +8,12 @@ def _validar_fecha(value: str) -> str:
         raise ValueError("La fecha debe tener el formato YYYY-MM-DD")
     return value
 
+def _vacio_a_none(value):
+    # Trata "" (o solo espacios) como "no se cargó email" en vez de forzar el formato
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return None
+    return value
+
 # --- METODOS DE PAGO ---
 class MetodoPagoCreate(BaseModel):
     nombre: str = Field(min_length=1, max_length=100)
@@ -22,14 +28,16 @@ class ClienteCreate(BaseModel):
     cedula: str = Field(min_length=1, max_length=30)
     nombre: str = Field(min_length=1, max_length=150)
     telefono: str = Field(min_length=1, max_length=30)
-    email: EmailStr
+    email: EmailStr | None = None
+
+    _email_vacio_a_none = field_validator("email", mode="before")(_vacio_a_none)
 
 class ClienteResponse(BaseModel):
     id: int
     cedula: str
     nombre: str
     telefono: str
-    email: str
+    email: str | None = None
     activo: bool = True
     class Config:
         from_attributes = True
@@ -39,6 +47,8 @@ class ClienteUpdate(BaseModel):
     nombre: str | None = Field(default=None, min_length=1, max_length=150)
     telefono: str | None = Field(default=None, min_length=1, max_length=30)
     email: EmailStr | None = None
+
+    _email_vacio_a_none = field_validator("email", mode="before")(_vacio_a_none)
 
 # --- PRESTAMOS ---
 class PrestamoCreate(BaseModel):

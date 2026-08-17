@@ -57,10 +57,10 @@ export default function ClienteForm() {
       isValid = false
     }
 
-    // Validar formato de email con expresión regular
+    // Email es opcional: solo validamos el formato si el usuario cargó algo
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(formData.email)) {
-      tempErrors.email = "Ingresa un correo electrónico válido."
+    if (formData.email.trim() && !emailRegex.test(formData.email)) {
+      tempErrors.email = "Ingresa un correo electrónico válido, o dejalo vacío."
       isValid = false
     }
 
@@ -144,15 +144,14 @@ export default function ClienteForm() {
             {errors.telefono && <p className="text-red-500 text-xs mt-1">{errors.telefono}</p>}
           </div>
 
-          {/* EMAIL */}
+          {/* EMAIL (opcional) */}
           <div>
-            <Input 
-              name="email" 
-              type="email" 
-              placeholder="Email (Ej: correo@dominio.com)" 
-              value={formData.email} 
-              onChange={handleChange} 
-              required 
+            <Input
+              name="email"
+              type="email"
+              placeholder="Email (opcional)"
+              value={formData.email}
+              onChange={handleChange}
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>

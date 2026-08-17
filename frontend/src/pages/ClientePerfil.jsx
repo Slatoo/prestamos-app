@@ -34,7 +34,7 @@ export default function ClientePerfil() {
       .then((res) => res.json())
       .then(data => {
         setCliente(data)
-        setEditFormData({ cedula: data.cedula, nombre: data.nombre, telefono: data.telefono, email: data.email })
+        setEditFormData({ cedula: data.cedula, nombre: data.nombre, telefono: data.telefono, email: data.email || "" })
       })
       .catch(console.error)
 
@@ -338,13 +338,13 @@ export default function ClientePerfil() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-email" className="text-right">Email</Label>
-              <Input 
-                id="edit-email" 
+              <Input
+                id="edit-email"
                 type="email"
-                value={editFormData.email} 
-                onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} 
-                className="col-span-3" 
-                required 
+                placeholder="Opcional"
+                value={editFormData.email}
+                onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                className="col-span-3"
               />
             </div>
             <DialogFooter>

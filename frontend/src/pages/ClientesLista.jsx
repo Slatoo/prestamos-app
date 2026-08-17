@@ -37,7 +37,7 @@ export default function ClientesLista() {
       cliente.nombre.toLowerCase().includes(term) ||
       cliente.cedula.toLowerCase().includes(term) ||
       cliente.telefono.toLowerCase().includes(term) ||
-      cliente.email.toLowerCase().includes(term)
+      (cliente.email || "").toLowerCase().includes(term)
     )
   })
 
