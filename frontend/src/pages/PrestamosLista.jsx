@@ -11,6 +11,7 @@ import { CheckCircle, AlertCircle, XCircle, Download } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SearchSelect } from "@/components/SearchSelect"
 import { API_URL, fetchConReintento } from "@/lib/api"
+import { toast } from "sonner"
 import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 export default function PrestamosLista() {
@@ -147,6 +148,7 @@ export default function PrestamosLista() {
       }
 
       setIsModalOpen(false)
+      toast.success("Pago registrado correctamente")
       fetchPrestamos()
     } catch (err) {
       console.error("Error al registrar pago:", err)

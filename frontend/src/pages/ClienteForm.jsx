@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { API_URL, fetchConReintento } from "@/lib/api"
+import { toast } from "sonner"
 
 export default function ClienteForm() {
   const navigate = useNavigate();
@@ -92,6 +93,7 @@ export default function ClienteForm() {
       }
 
       setFormData({ cedula: "", nombre: "", telefono: "", email: "" })
+      toast.success("Cliente creado correctamente")
       navigate("/clientes")
     } catch (err) {
       console.error(err);

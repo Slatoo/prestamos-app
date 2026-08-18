@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { API_URL, fetchConReintento } from "@/lib/api"
+import { toast } from "sonner"
 import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 export default function MetodosPago() {
@@ -50,6 +51,7 @@ export default function MetodosPago() {
       }
 
       setNombre("")
+      toast.success("Método de pago creado correctamente")
       fetchMetodos()
     } catch (err) {
       setError(err.message === 'Failed to fetch' ? "Error de conexión con el servidor." : err.message)

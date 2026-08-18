@@ -24,7 +24,7 @@ const menuItems = [
       isCollapsed ? "w-20" : "w-64"
     )}>
       <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-        {!isCollapsed && <h1 className="text-xl font-bold text-blue-600">PrestamosApp</h1>}
+        {!isCollapsed && <h1 className="text-xl font-bold text-blue-600">Kredi</h1>}
         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="text-slate-600">
           <Menu className="h-5 w-5" />
         </Button>

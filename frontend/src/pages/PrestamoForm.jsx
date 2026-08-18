@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { SearchSelect } from "@/components/SearchSelect"
 import { API_URL, fetchConReintento } from "@/lib/api"
+import { toast } from "sonner"
 
 export default function PrestamoForm() {
   const navigate = useNavigate()
@@ -146,6 +147,7 @@ export default function PrestamoForm() {
         throw new Error(errorMsg)
       }
 
+      toast.success("Préstamo registrado correctamente")
       navigate("/prestamos")
     } catch (err) {
       console.error("Error al crear préstamo:", err)

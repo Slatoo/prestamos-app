@@ -13,6 +13,7 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Label } from "@/components/ui/label"
 import { API_URL, fetchConReintento } from "@/lib/api"
+import { toast } from "sonner"
 import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 export default function ClientePerfil() {
@@ -97,9 +98,10 @@ export default function ClientePerfil() {
       .then(res => { if(!res.ok) return res.json().then(err => { throw new Error(err.detail || "Error al editar") }) })
       .then(() => {
         setIsEditModalOpen(false)
+        toast.success("Cliente actualizado correctamente")
         fetchClienteData()
       })
-      .catch(err => alert(err.message))
+      .catch(err => toast.error(err.message))
   }
 
   const handleOcultar = async () => { // <-- AHORA ES ASYNC
@@ -110,8 +112,11 @@ export default function ClientePerfil() {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then(res => { if(!res.ok) return res.json().then(err => { throw new Error(err.detail) }) })
-      .then(() => fetchClienteData())
-      .catch(err => alert(err.message))
+      .then(() => {
+        toast.success("Cliente ocultado")
+        fetchClienteData()
+      })
+      .catch(err => toast.error(err.message))
   }
 
   const handleRestaurar = async () => { // <-- AHORA ES ASYNC
@@ -121,8 +126,11 @@ export default function ClientePerfil() {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then(res => { if(!res.ok) throw new Error("Error al restaurar") })
-      .then(() => fetchClienteData())
-      .catch(console.error)
+      .then(() => {
+        toast.success("Cliente restaurado")
+        fetchClienteData()
+      })
+      .catch(err => toast.error(err.message === 'Failed to fetch' ? "Error de conexión con el servidor." : "Error al restaurar el cliente."))
   }
   
   // ... AQUÍ CONTINÚA EL RESTO DE TU CÓDIGO JSX (EL RETURN) ...
