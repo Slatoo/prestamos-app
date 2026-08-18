@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Users, Wallet, DollarSign, TrendingUp, CircleDollarSign, HandCoins, PiggyBank, ArrowLeft } from "lucide-react"
-import { API_URL } from "@/lib/api"
+import { API_URL, fetchConReintento } from "@/lib/api"
+import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -31,11 +32,17 @@ export default function Dashboard() {
 
   const aniosDisponibles = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i)
 
+  // Se incrementa cada vez que volvés a esta pestaña tras tenerla en segundo
+  // plano, para forzar un refetch (evita quedarse con datos viejos/vacíos si
+  // el fetch original falló mientras no mirabas).
+  const [refreshKey, setRefreshKey] = useState(0)
+  useRefetchOnFocus(() => setRefreshKey((k) => k + 1))
+
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
         const token = await getToken();
-        const res = await fetch(`${API_URL}/dashboard/`, {
+        const res = await fetchConReintento(`${API_URL}/dashboard/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -47,8 +54,9 @@ export default function Dashboard() {
 
         const data = await res.json();
         setStats(data);
+        setError(null);
 
-        const resResumen = await fetch(`${API_URL}/dashboard/resumen/`, {
+        const resResumen = await fetchConReintento(`${API_URL}/dashboard/resumen/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (resResumen.ok) {
@@ -61,7 +69,7 @@ export default function Dashboard() {
     }
 
     fetchDashboard();
-  }, [getToken])
+  }, [getToken, refreshKey])
 
   // Reporte mensual del año elegido (se recalcula si cambia año o cliente, con debounce en el texto)
   useEffect(() => {
@@ -72,7 +80,7 @@ export default function Dashboard() {
         const params = new URLSearchParams({ anio: anio.toString() })
         if (clienteFiltro.trim()) params.set("cliente", clienteFiltro.trim())
 
-        const res = await fetch(`${API_URL}/dashboard/reporte-mensual/?${params}`, {
+        const res = await fetchConReintento(`${API_URL}/dashboard/reporte-mensual/?${params}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) setReporteMensual(await res.json());
@@ -84,7 +92,7 @@ export default function Dashboard() {
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [anio, clienteFiltro, getToken])
+  }, [anio, clienteFiltro, getToken, refreshKey])
 
   // Detalle del mes elegido (drill-down)
   useEffect(() => {
@@ -95,7 +103,7 @@ export default function Dashboard() {
         const params = new URLSearchParams({ anio: anio.toString(), mes: mesFiltro })
         if (clienteFiltro.trim()) params.set("cliente", clienteFiltro.trim())
 
-        const res = await fetch(`${API_URL}/dashboard/detalle-mes/?${params}`, {
+        const res = await fetchConReintento(`${API_URL}/dashboard/detalle-mes/?${params}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) setDetalleMes(await res.json());
@@ -105,7 +113,7 @@ export default function Dashboard() {
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [mesFiltro, anio, clienteFiltro, getToken])
+  }, [mesFiltro, anio, clienteFiltro, getToken, refreshKey])
 
   // Si hubo un error, lo mostramos en pantalla en lugar de colapsar
   if (error) return <div className="p-8 text-red-500 font-semibold">Error: {error}</div>

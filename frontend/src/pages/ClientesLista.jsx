@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search, X, Eye } from "lucide-react"
-import { API_URL } from "@/lib/api"
+import { API_URL, fetchConReintento } from "@/lib/api"
+import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 export default function ClientesLista() {
   const { getToken } = useAuth(); // <-- NUEVO HOOK DE CLERK
@@ -14,12 +15,16 @@ export default function ClientesLista() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showHidden, setShowHidden] = useState(false)
 
+  // Se incrementa al volver a esta pestaña tras tenerla en segundo plano
+  const [refreshKey, setRefreshKey] = useState(0)
+  useRefetchOnFocus(() => setRefreshKey((k) => k + 1))
+
   useEffect(() => {
     // <-- CREAMOS UNA FUNCIÓN ASYNC DENTRO DEL USE EFFECT
     const fetchClientes = async () => {
       const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-      
-      fetch(`${API_URL}/clientes/?show_hidden=${showHidden}`, {
+
+      fetchConReintento(`${API_URL}/clientes/?show_hidden=${showHidden}`, {
         headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
       })
         .then((res) => res.json())
@@ -28,7 +33,7 @@ export default function ClientesLista() {
     }
 
     fetchClientes();
-  }, [showHidden, getToken]) // <-- AÑADIMOS getToken POR BUENAS PRÁCTICAS
+  }, [showHidden, getToken, refreshKey]) // <-- AÑADIMOS getToken POR BUENAS PRÁCTICAS
 
   // Lógica de filtrado
   const clientesFiltrados = clientes.filter((cliente) => {

@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { API_URL } from "@/lib/api"
+import { API_URL, fetchConReintento } from "@/lib/api"
 
 export default function ClienteForm() {
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export default function ClienteForm() {
     const token = await getToken();
 
     try {
-      const res = await fetch(`${API_URL}/clientes/`, {
+      const res = await fetchConReintento(`${API_URL}/clientes/`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

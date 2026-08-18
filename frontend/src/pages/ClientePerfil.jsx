@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Label } from "@/components/ui/label"
-import { API_URL } from "@/lib/api"
+import { API_URL, fetchConReintento } from "@/lib/api"
+import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 export default function ClientePerfil() {
   const { id } = useParams()
@@ -20,15 +21,19 @@ export default function ClientePerfil() {
   const [cliente, setCliente] = useState(null)
   const [prestamos, setPrestamos] = useState([])
   const [actividades, setActividades] = useState([])
-  
+
   // Estados para Editar
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editFormData, setEditFormData] = useState({ cedula: "", nombre: "", telefono: "", email: "" })
 
+  // Se incrementa al volver a esta pestaña tras tenerla en segundo plano
+  const [refreshKey, setRefreshKey] = useState(0)
+  useRefetchOnFocus(() => setRefreshKey((k) => k + 1))
+
   const fetchClienteData = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
 
-    fetch(`${API_URL}/clientes/${id}`, {
+    fetchConReintento(`${API_URL}/clientes/${id}`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
@@ -38,14 +43,14 @@ export default function ClientePerfil() {
       })
       .catch(console.error)
 
-    fetch(`${API_URL}/prestamos/?cliente_id=${id}`, {
+    fetchConReintento(`${API_URL}/prestamos/?cliente_id=${id}`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
       .then(setPrestamos)
       .catch(console.error)
 
-    fetch(`${API_URL}/actividades/?cliente_id=${id}&limit=100`, {
+    fetchConReintento(`${API_URL}/actividades/?cliente_id=${id}&limit=100`, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
@@ -55,7 +60,7 @@ export default function ClientePerfil() {
 
   useEffect(() => {
     fetchClienteData()
-  }, [id])
+  }, [id, refreshKey])
 
   if (!cliente) return <div className="p-8">Cargando perfil...</div>
 
@@ -81,26 +86,26 @@ export default function ClientePerfil() {
   const handleEditSubmit = async (e) => { // <-- AHORA ES ASYNC
     e.preventDefault()
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch(`${API_URL}/clientes/${id}`, {
+    fetchConReintento(`${API_URL}/clientes/${id}`, {
       method: "PUT",
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}` // <-- CABECERA NUEVA
       },
       body: JSON.stringify(editFormData)
     })
-      .then(res => { if(!res.ok) throw new Error("Error al editar") })
+      .then(res => { if(!res.ok) return res.json().then(err => { throw new Error(err.detail || "Error al editar") }) })
       .then(() => {
         setIsEditModalOpen(false)
-        fetchClienteData() 
+        fetchClienteData()
       })
-      .catch(console.error)
+      .catch(err => alert(err.message))
   }
 
   const handleOcultar = async () => { // <-- AHORA ES ASYNC
     if (!confirm("¿Estás seguro de ocultar este cliente? Ya no aparecerá en las listas principales.")) return
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch(`${API_URL}/clientes/${id}/ocultar/`, { 
+    fetchConReintento(`${API_URL}/clientes/${id}/ocultar/`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
@@ -111,7 +116,7 @@ export default function ClientePerfil() {
 
   const handleRestaurar = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
-    fetch(`${API_URL}/clientes/${id}/restaurar/`, { 
+    fetchConReintento(`${API_URL}/clientes/${id}/restaurar/`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })

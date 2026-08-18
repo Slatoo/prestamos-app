@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { History } from "lucide-react"
-import { API_URL } from "@/lib/api"
+import { API_URL, fetchConReintento } from "@/lib/api"
+import { useRefetchOnFocus } from "@/hooks/useRefetchOnFocus"
 
 export default function HistorialActividad() {
   const { getToken } = useAuth(); // <-- NUEVO HOOK DE CLERK
@@ -22,18 +23,22 @@ export default function HistorialActividad() {
   const [fechaDesde, setFechaDesde] = useState("")
   const [fechaHasta, setFechaHasta] = useState("")
 
+  // Se incrementa al volver a esta pestaña tras tenerla en segundo plano
+  const [refreshKey, setRefreshKey] = useState(0)
+  useRefetchOnFocus(() => setRefreshKey((k) => k + 1))
+
   const fetchActividades = async () => { // <-- AHORA ES ASYNC
     const token = await getToken(); // <-- OBTENEMOS EL TOKEN
     const skip = (page - 1) * limit
     let url = `${API_URL}/actividades/?skip=${skip}&limit=${limit}`
-    
+
     if (search) url += `&search=${search}`
     if (categoria !== "Todos") url += `&categoria=${categoria}`
     if (accion !== "Todos") url += `&accion=${accion}`
     if (fechaDesde) url += `&fecha_desde=${fechaDesde}`
     if (fechaHasta) url += `&fecha_hasta=${fechaHasta}`
 
-    fetch(url, {
+    fetchConReintento(url, {
       headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
     })
       .then((res) => res.json())
@@ -43,7 +48,7 @@ export default function HistorialActividad() {
 
   useEffect(() => {
     fetchActividades()
-  }, [page]) // Se ejecuta cada vez que cambia la página
+  }, [page, refreshKey]) // Se ejecuta cada vez que cambia la página
 
   const handleFiltrar = (e) => {
     e.preventDefault()
@@ -60,8 +65,8 @@ export default function HistorialActividad() {
     setFechaHasta("")
     setPage(1)
     // Forzamos la recarga sin filtros
-    setTimeout(() => 
-      fetch(`${API_URL}/actividades/?skip=0&limit=${limit}`, {
+    setTimeout(() =>
+      fetchConReintento(`${API_URL}/actividades/?skip=0&limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` } // <-- CABECERA NUEVA
       })
         .then(r=>r.json())
