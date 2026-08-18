@@ -125,7 +125,7 @@ export default function HistorialActividad() {
             </Select>
           </div>
 
-          <div className="flex gap-2 items-end">
+          <div className="flex flex-wrap gap-2 items-end">
             <div>
               <label className="text-xs font-semibold text-slate-500 mb-1 block">Desde</label>
               <Input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
@@ -146,7 +146,7 @@ export default function HistorialActividad() {
               <TableHead>Fecha / Hora</TableHead>
               <TableHead>Categoría</TableHead>
               <TableHead>Acción</TableHead>
-              <TableHead>Descripción</TableHead>
+              <TableHead className="min-w-[220px]">Descripción</TableHead>
               <TableHead>Monto</TableHead>
             </TableRow>
           </TableHeader>
@@ -161,7 +161,7 @@ export default function HistorialActividad() {
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{act.accion.replace("_", " ")}</TableCell>
-                  <TableCell className="text-sm">{act.descripcion}</TableCell>
+                  <TableCell className="text-sm whitespace-normal min-w-[220px]">{act.descripcion}</TableCell>
                   <TableCell className="text-right font-bold">
                     {act.monto_referencia ? `$${act.monto_referencia.toFixed(2)}` : "-"}
                   </TableCell>

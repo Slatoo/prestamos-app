@@ -254,7 +254,7 @@ export default function Dashboard() {
           </div>
 
           {/* KPIs del período elegido */}
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-6">
             <div className="p-4 rounded-lg border border-amber-100 bg-amber-50">
               <div className="flex items-center gap-2 text-amber-700 text-xs font-semibold mb-1">
                 <HandCoins className="h-4 w-4" /> Prestado en el período

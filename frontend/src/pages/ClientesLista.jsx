@@ -54,31 +54,33 @@ export default function ClientesLista() {
       <CardContent>
         
         {/* SECCIÓN DE BÚSQUEDA Y FILTRO OCULTOS */}
-        <div className="flex items-center justify-between mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-          <div className="relative flex-1 mr-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="relative flex-1 sm:mr-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input 
-              placeholder="Buscar por nombre, cédula, teléfono o email..." 
+            <Input
+              placeholder="Buscar por nombre, cédula, teléfono o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 bg-white"
             />
           </div>
-          
-          <Button 
-            variant={showHidden ? "default" : "outline"} 
-            onClick={() => setShowHidden(!showHidden)}
-            className="flex-shrink-0"
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            {showHidden ? "Ver Activos" : "Ver Ocultos"}
-          </Button>
 
-          {searchTerm && (
-            <Button variant="outline" size="icon" onClick={() => setSearchTerm("")} className="ml-2">
-              <X className="h-4 w-4" />
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showHidden ? "default" : "outline"}
+              onClick={() => setShowHidden(!showHidden)}
+              className="flex-shrink-0"
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              {showHidden ? "Ver Activos" : "Ver Ocultos"}
             </Button>
-          )}
+
+            {searchTerm && (
+              <Button variant="outline" size="icon" onClick={() => setSearchTerm("")}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* TABLA */}

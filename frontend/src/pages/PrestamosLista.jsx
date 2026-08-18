@@ -226,9 +226,9 @@ export default function PrestamosLista() {
   return (
     <>
       <Card className="shadow-sm border-slate-200">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-slate-800">Préstamos Registrados</CardTitle>
-          <Button variant="outline" size="sm" onClick={exportToCSV} disabled={prestamosFiltrados.length === 0}>
+          <Button variant="outline" size="sm" onClick={exportToCSV} disabled={prestamosFiltrados.length === 0} className="self-start sm:self-auto">
             <Download className="mr-2 h-4 w-4" />
             Exportar CSV
           </Button>
@@ -260,7 +260,7 @@ export default function PrestamosLista() {
               </Select>
             </div>
 
-            <div className="flex gap-2 items-end">
+            <div className="flex flex-wrap gap-2 items-end">
               <div>
                 <label className="text-xs font-semibold text-slate-500 mb-1 block">Fecha Inicial Desde</label>
                 <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />

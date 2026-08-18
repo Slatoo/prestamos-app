@@ -167,16 +167,16 @@ export default function ClientePerfil() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4 min-w-0">
           <Link to="/clientes">
             <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
-          <h1 className="text-3xl font-bold text-slate-800">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 truncate">
             {cliente.nombre} {!cliente.activo && <Badge variant="destructive" className="ml-2">Oculto</Badge>}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
             <Edit className="mr-2 h-4 w-4" /> Editar
           </Button>
@@ -319,49 +319,49 @@ export default function ClientePerfil() {
             <DialogDescription>Haz cambios en la información del cliente. Haz clic en guardar cuando termines.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-cedula" className="text-right">Cédula</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-cedula" className="sm:text-right">Cédula</Label>
               <Input 
                 id="edit-cedula" 
                 value={editFormData.cedula} 
                 onChange={(e) => setEditFormData({...editFormData, cedula: e.target.value})} 
-                className="col-span-3" 
+                className="sm:col-span-3" 
                 required 
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-nombre" className="text-right">Nombre</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-nombre" className="sm:text-right">Nombre</Label>
               <Input 
                 id="edit-nombre" 
                 value={editFormData.nombre} 
                 onChange={(e) => setEditFormData({...editFormData, nombre: e.target.value})} 
-                className="col-span-3" 
+                className="sm:col-span-3" 
                 required 
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-telefono" className="text-right">Teléfono</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-telefono" className="sm:text-right">Teléfono</Label>
               <Input 
                 id="edit-telefono" 
                 value={editFormData.telefono} 
                 onChange={(e) => setEditFormData({...editFormData, telefono: e.target.value})} 
-                className="col-span-3" 
+                className="sm:col-span-3" 
                 required 
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-email" className="text-right">Email</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="edit-email" className="sm:text-right">Email</Label>
               <Input
                 id="edit-email"
                 type="email"
                 placeholder="Opcional"
                 value={editFormData.email}
                 onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
-                className="col-span-3"
+                className="sm:col-span-3"
               />
             </div>
             <DialogFooter>
-              <Button type="submit" className="col-span-4">Guardar Cambios</Button>
+              <Button type="submit" className="sm:col-span-4">Guardar Cambios</Button>
             </DialogFooter>
           </form>
         </DialogContent>
